@@ -7,11 +7,20 @@
 
 #include"geometry.h"
 
+struct Light {
+    Light(const Vec3f &p, const float i): position(p), intensity(i){}
+    Vec3f position;
+    float intensity;
+};
+
 struct Material
 {
-    Material(const Vec3f &color) : diffuse_color(color){}
-    Material() : diffuse_color() {}
+    Material(const float r, const Vec4f &a, const Vec3f &color, const float spec) : refractive_index(r), albedo(a), diffuse_color(color), specular_exponent(spec){}
+    Material() : refractive_index(1), albedo(1,0,0,0), diffuse_color(), specular_exponent() {}
+   float refractive_index;
+    Vec4f albedo; 
     Vec3f diffuse_color;
+    float specular_exponent;
 };
 
 struct Sphere 
@@ -19,7 +28,8 @@ struct Sphere
     Vec3f center;
     float radius;
     Material material;
-    Sphere(const Vec3f &c, const float &r, const Material &m) : center(c), radius(r), material(m) {}
+
+    Sphere(const Vec3f &c, const float r, const Material &m) : center(c), radius(r), material(m) {}
 
     bool ray_intersect(const Vec3f &orig, const Vec3f &dir, float &t0) const {
         Vec3f L = center - orig;
@@ -42,6 +52,16 @@ struct Sphere
         return true;
     }
 };
+
+Vec3f reflect(const Vec3f &I, const Vec3f &N)
+{
+    return I - N*2.f*(I*N);
+}
+
+Vec3f refract(const Vec3f &I, const Vec3f &N, const float eta_t, const float eta_i=1.f)
+{
+float cosi = - std::max(-1.f, std::min(1.f, std::min(1.f, I*N));
+
 
 bool scene_intersect(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere>&spheres, Vec3f &hit, Vec3f &N, Material &material)
 {
@@ -105,8 +125,8 @@ int main()
     Material      ivory(Vec3f(0.4, 0.4, 0.3));
     Material red_rubber(Vec3f(0.3, 0.1, 0.1));
 
-    std::vector<Sphere> spheres;
-    spheres.push_back(Sphere(Vec3f(-3,    0,   -16), 2,      ivory));
+    std::vector<Sphere> spheres; // stores the instances of the class
+    spheres.push_back(Sphere(Vec3f(-3,    3,   -16), 2,      ivory));
     spheres.push_back(Sphere(Vec3f(-1.0, -1.5, -12), 2, red_rubber));
     spheres.push_back(Sphere(Vec3f( 1.5, -0.5, -18), 3, red_rubber));
     spheres.push_back(Sphere(Vec3f( 7,    5,   -18), 4,      ivory));
