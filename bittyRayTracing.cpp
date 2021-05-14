@@ -60,8 +60,15 @@ Vec3f reflect(const Vec3f &I, const Vec3f &N)
 
 Vec3f refract(const Vec3f &I, const Vec3f &N, const float eta_t, const float eta_i=1.f)
 {
-float cosi = - std::max(-1.f, std::min(1.f, std::min(1.f, I*N));
+    float cosi = - std::max(-1.f, std::min(1.f, std::min(1.f, I*N));
+    if  (cosi<0)
+        return refract(I, N, eta_t, eta_i);
 
+    float  eta = eta_i / eta_t;
+        
+    float k = 1 - eta*eta*(1 - cosi*cosi);
+    return k<0 ? Vec3f(1,0,0) : I*eta + N*(eta*cosi - sqrtf(k)); 
+}              
 
 bool scene_intersect(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere>&spheres, Vec3f &hit, Vec3f &N, Material &material)
 {
@@ -76,18 +83,50 @@ bool scene_intersect(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphe
             material = spheres[i].material;
         }
     }
-        return sphere_dist > 1000;
+
+    float checkboard = std::numeric_limits<float>::max();
+    if(abs(dir.y) > 1e-3){
+        float d = -(orig.y+4)/dir.y;
+        Vec3f pt = orig + dir * dir;
+        if(d>0 && abs(pt.y)<10 && pt.z < -10 && pt.z > -30 && d < spheres_dist){
+             checkboard_dist = d;
+             hit = pt;
+             N = Vec3f(0, 1, 0);
+             material.diffuse_color = (int(.5*hit.x+1000) + int(.5*hit.z)) & 1 ? Vec3f(.3, .3, .3) : Vec3f(.3, .2, .1); 
+        }
+    }        
+    return std::min(spheres_dist, checkborard_dist) < 1000;
 }
     
 Vec3f cast_ray(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere>&spheres)
 {
     Vec3f point, N;
     Material material;
-    if(!scene_intersect(orig, dir, spheres, point, N, material)){
+    if(depth > 4 || !scene_intersect(orig, dir, spheres, point, N, material)){
           return Vec3f(0.2, 0.7, 0.8);
-        }
-    return material.diffuse_color;
- }
+    }
+        Vec3f reflect_dir = reflect(dir, N).normalize();
+        Vec3f refract_dir = refract(dir, N, material.refractive_index).normalize();
+        Vec3f reflect_orig = reflect_dir*N < 0 ? point - N*1e-3 : point + N*1e-3; // offset the original point to avoid occlusion by the object itself
+        Vec3f refract_orig = refract_dir*N < 0 ? point - N*1e-3 : point + N*1e-3;
+        Vec3f reflect_color = cast_ray(reflect_orig, reflect_dir, spheres, lights, depth + 1);
+        Vec3f refract_color = cast_ray(refract_orig, refract_dir, spheres, lights, depth + 1);
+
+        float diffuse_light_intensity = 0, specular_light_intensity = 0;
+
+        for (size_t i=0; i<lights.size(); i++) {
+           Vec3f light_dir      = (lights[i].position - point).normalize();
+           float light_distance = (lights[i].position - point).norm();
+           shadow_orig = light_dir*N < 0 ? point - N*1e-3 : point + N*1e-3; // checking if the point lies in the shadow of the lights[i]
+           Vec3f shadow_pt, shadow_N;
+           Material tmpmaterial;
+            if (scene_intersect(shadow_orig, light_dir, spheres, shadow_pt, shadow_N, tmpmaterial) && (shadow_pt-shadow_orig).norm() < light_distance)                              continue;
+          
+          diffuse_light_intensity  += lights[i].intensity * std::max(0.f, light_dir*N);
+          specular_light_intensity += powf(std::max(0.f, -reflect(-light_dir, N)*dir), material.specular_exponent)*lights[i].intensity;
+          }
+       return material.diffuse_color * diffuse_light_intensity * material.albedo[0] + Vec3f(1., 1., 1.)*specular_light_intensity * material.albedo[1] + reflect_color*material.albedo[2] + refract_color*material.albedo[3];
+}
 
 void render(const std::vector<Sphere>&spheres )
 {
