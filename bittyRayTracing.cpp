@@ -1,30 +1,33 @@
-#include<limits>
-#include<iostream>
-#include<vector>
-#include<fstream>
-#include<cmath>
+#include <limits>
+#include <iostream>
+#include <vector>
+#include <fstream>
+#include <cmath>
 // #include<numbers> std::numeric::pi
 
 #include"geometry.h"
 
 struct Light {
-    Light(const Vec3f &p, const float i): position(p), intensity(i){}
+    Light(const Vec3f &p, const float i) :position{ p }, intensity{ i } { }
     Vec3f position;
     float intensity;
 };
 
-struct Material
-{
-    Material(const float r, const Vec4f &a, const Vec3f &color, const float spec) : refractive_index(r), albedo(a), diffuse_color(color), specular_exponent(spec){}
+struct Material {
+    Material(const float r, const Vec4f &a, const Vec3f &color, const float spec);
     Material() : refractive_index(1), albedo(1,0,0,0), diffuse_color(), specular_exponent() {}
-   float refractive_index;
+    float refractive_index;
     Vec4f albedo; 
     Vec3f diffuse_color;
     float specular_exponent;
 };
 
-struct Sphere 
+Material::Material(const float r, const Vec4f &a, const Vec3f &color, const float spec) 
+            : refractive_index{ r }, albedo{ a }, diffuse_color { color }, specular_exponent{ spec }
 {
+}
+
+struct Sphere {
     Vec3f center;
     float radius;
     Material material;
@@ -53,14 +56,13 @@ struct Sphere
     }
 };
 
-Vec3f reflect(const Vec3f &I, const Vec3f &N)
-{
+Vec3f reflect(const Vec3f &I, const Vec3f &N) {
     return I - N*2.f*(I*N);
 }
 
-Vec3f refract(const Vec3f &I, const Vec3f &N, const float eta_t, const float eta_i=1.f)
-{
-    float cosi = - std::max(-1.f, std::min(1.f, std::min(1.f, I*N));
+Vec3f refract(const Vec3f &I, const Vec3f &N, 
+            const float eta_t, const float eta_i=1.f) {
+    float cosi = - std::max(-1.f, std::min(1.f, std::min(1.f, I*N)));
     if  (cosi<0)
         return refract(I, N, eta_t, eta_i);
 
@@ -70,11 +72,11 @@ Vec3f refract(const Vec3f &I, const Vec3f &N, const float eta_t, const float eta
     return k<0 ? Vec3f(1,0,0) : I*eta + N*(eta*cosi - sqrtf(k)); 
 }              
 
-bool scene_intersect(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere>&spheres, Vec3f &hit, Vec3f &N, Material &material)
-{
+bool scene_intersect(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere>&spheres,
+                     Vec3f &hit, Vec3f &N, Material &material) {
 
     float sphere_dist = std::numeric_limits<float>::max();
-    for (size_t i = 0; i < spheres.size(); i++){
+    for (size_t i = 0; i < spheres.size(); i++) {
        float dist_i{}; 
         if(spheres[i].ray_intersect(orig, dir, dist_i) && dist_i < sphere_dist){
             sphere_dist = dist_i;
@@ -88,18 +90,17 @@ bool scene_intersect(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphe
     if(abs(dir.y) > 1e-3){
         float d = -(orig.y+4)/dir.y;
         Vec3f pt = orig + dir * dir;
-        if(d>0 && abs(pt.y)<10 && pt.z < -10 && pt.z > -30 && d < spheres_dist){
-             checkboard_dist = d;
+        if(d>0 && abs(pt.y)<10 && pt.z < -10 && pt.z > -30 && d < sphere_dist){
+            float checkboard_dist = d;
              hit = pt;
              N = Vec3f(0, 1, 0);
              material.diffuse_color = (int(.5*hit.x+1000) + int(.5*hit.z)) & 1 ? Vec3f(.3, .3, .3) : Vec3f(.3, .2, .1); 
         }
     }        
-    return std::min(spheres_dist, checkborard_dist) < 1000;
+    return std::min(sphere_dist, checkboard_dist) < 1000;
 }
     
-Vec3f cast_ray(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere>&spheres)
-{
+Vec3f cast_ray(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere>&spheres) {
     Vec3f point, N;
     Material material;
     if(depth > 4 || !scene_intersect(orig, dir, spheres, point, N, material)){
